@@ -24,6 +24,7 @@ import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
 import org.semanticweb.owlapi.model.parameters.Imports;
 import org.semanticweb.owlapi.reasoner.OWLReasoner;
 import org.semanticweb.owlapi.reasoner.OWLReasonerFactory;
+import org.semanticweb.owlapi.util.OWLAxiomVisitorAdapter;
 
 /**
  * This class may be used to create multi-species ontologies following the
@@ -35,7 +36,7 @@ import org.semanticweb.owlapi.reasoner.OWLReasonerFactory;
  * "https://github.com/owlcollab/owltools/blob/master/OWLTools-Core/src/main/java/owltools/mooncat/SpeciesMergeUtil.java">implementation</a>
  * of that strategy in OWLTools.
  */
-public class SpeciesMerger {
+public class SpeciesMerger extends OWLAxiomVisitorAdapter {
 
     private OWLClass taxClass;
     private OWLObjectProperty linkProperty;
@@ -52,6 +53,8 @@ public class SpeciesMerger {
     private Set<OWLClass> txClasses;
     private Map<OWLClass, OWLClass> ecMap;
     private Map<OWLClass, OWLClassExpression> exMap;
+    private OWLAxiom translatedAxiom;
+    private OWLClass subject;
 
     /**
      * Creates a new instance with BFO:0000050 as the linking property.
@@ -110,32 +113,22 @@ public class SpeciesMerger {
             }
 
             Set<OWLAxiom> newAxioms = new HashSet<OWLAxiom>();
+            subject = c;
             for ( OWLAxiom axiom : axioms ) {
-                OWLAxiom newAxiom;
-                if (axiom instanceof OWLSubClassOfAxiom) {
-                    newAxiom = translate((OWLSubClassOfAxiom) axiom);
-                }
-                else if (axiom instanceof OWLEquivalentClassesAxiom) {
-                    newAxiom = translate((OWLEquivalentClassesAxiom) axiom);
-                }
-                else if (axiom instanceof OWLAnnotationAssertionAxiom) {
-                    newAxiom = translate(c, (OWLAnnotationAssertionAxiom) axiom);
-                }
-                else {
-                    newAxiom = null;
-                }
+                translatedAxiom = null;
+                axiom.accept(this);
                 
-                if (newAxiom != null && ecMap.containsKey(c)) {
-                    for (OWLClass sc : newAxiom.getClassesInSignature()) {
+                if ( translatedAxiom != null && ecMap.containsKey(c) ) {
+                    for ( OWLClass sc : translatedAxiom.getClassesInSignature() ) {
                         if (isSkippable(sc)) {
-                            newAxiom = null;
+                            translatedAxiom = null;
                             break;
                         }
                     }
                 }
                 
-                if ( newAxiom != null && !newAxiom.getClassesInSignature().contains(txRootClass) ) {
-                    newAxioms.add(newAxiom);
+                if ( translatedAxiom != null && !translatedAxiom.getClassesInSignature().contains(txRootClass) ) {
+                    newAxioms.add(translatedAxiom);
                 }
             }
 
@@ -201,59 +194,6 @@ public class SpeciesMerger {
         }
     }
 
-    private OWLAxiom translate(OWLEquivalentClassesAxiom axiom) {
-        // Equivalent classes axioms are translated by translating their component class
-        // expressions.
-        Set<OWLClassExpression> xs = new HashSet<OWLClassExpression>();
-        for ( OWLClassExpression x : axiom.getClassExpressions() ) {
-            OWLClassExpression tx = translateExpression(x, true);
-            if ( tx == null ) {
-                // If one class expression cannot be translated, the entire
-                // equivalent axiom cannot be translated.
-                return null;
-            }
-            xs.add(tx);
-        }
-
-        return factory.getOWLEquivalentClassesAxiom(xs);
-    }
-
-    private OWLAxiom translate(OWLSubClassOfAxiom axiom) {
-        OWLClassExpression trSub = translateExpression(axiom.getSubClass(), true);
-        OWLClassExpression trSuper = translateExpression(axiom.getSuperClass(), false);
-
-        // Both sides of the axiom need to be translatable.
-        if ( trSub == null || trSuper == null ) {
-            return null;
-        }
-
-        // Avoid circular references.
-        if ( trSub.getClassesInSignature().contains(trSuper) ) {
-            return null;
-        }
-
-        // No need for this SubClassOf axiom if the taxon-neutral class is already a
-        // subclass of the translated superclass.
-        if ( !trSub.equals(axiom.getSubClass()) ) {
-            if ( reasoner.getSuperClasses(ecMap.get(axiom.getSubClass()), false).getFlattened().contains(trSuper) ) {
-                return null;
-            }
-
-            Set<OWLClass> ancs = new HashSet<OWLClass>();
-            ancs.addAll(reasoner.getSuperClasses(ecMap.get(axiom.getSubClass()), false).getFlattened());
-            ancs.addAll(reasoner.getEquivalentClasses(ecMap.get(axiom.getSubClass())).getEntities());
-            for ( OWLClass p : ancs ) {
-                for ( OWLSubClassOfAxiom sca : ontology.getSubClassAxiomsForSubClass(p) ) {
-                    if ( sca.getSuperClass().equals(trSuper) ) {
-                        return null;
-                    }
-                }
-            }
-        }
-
-        return factory.getOWLSubClassOfAxiom(trSub, trSuper);
-    }
-
     private OWLClassExpression translateExpression(OWLClassExpression x, boolean mustBeEquiv) {
         if ( !x.isAnonymous() ) {
             if ( mustBeEquiv ) {
@@ -270,24 +210,6 @@ public class SpeciesMerger {
         }
 
         return null;
-    }
-
-    private OWLAxiom translate(OWLClass c, OWLAnnotationAssertionAxiom axiom) {
-        if ( ecMap.containsKey(c) ) {
-            // No translation needed for the unfolded classes.
-            return null;
-        }
-
-        if ( axiom.getProperty().isLabel() ) {
-            // Translate the label by appending the taxon-specific suffix.
-            OWLLiteral lit = axiom.getValue().asLiteral().get();
-            String newLabel = lit.getLiteral() + " (" + suffix + ")";
-            return factory.getOWLAnnotationAssertionAxiom(axiom.getProperty(), axiom.getSubject(),
-                    factory.getOWLLiteral(newLabel));
-        }
-
-        // Use other annotations as they are.
-        return axiom;
     }
 
     private boolean isSkippable(OWLClass c) {
@@ -307,5 +229,80 @@ public class SpeciesMerger {
         }
 
         return false;
+    }
+
+
+    @Override
+    public void visit(OWLEquivalentClassesAxiom axiom) {
+        // Equivalent classes axioms are translated by translating their component class
+        // expressions.
+        Set<OWLClassExpression> xs = new HashSet<OWLClassExpression>();
+        for ( OWLClassExpression x : axiom.getClassExpressions() ) {
+            OWLClassExpression tx = translateExpression(x, true);
+            if ( tx == null ) {
+                // If one class expression cannot be translated, the entire
+                // equivalent axiom cannot be translated.
+                return;
+            }
+            xs.add(tx);
+        }
+
+        translatedAxiom = factory.getOWLEquivalentClassesAxiom(xs);
+    }
+
+    @Override
+    public void visit(OWLAnnotationAssertionAxiom axiom) {
+        if ( ecMap.containsKey(subject) ) {
+            // No translation needed for the unfolded classes.
+            return;
+        }
+
+        if ( axiom.getProperty().isLabel() ) {
+            // Translate the label by appending the taxon-specific suffix.
+            OWLLiteral lit = axiom.getValue().asLiteral().get();
+            String newLabel = lit.getLiteral() + " (" + suffix + ")";
+            translatedAxiom = factory.getOWLAnnotationAssertionAxiom(axiom.getProperty(), axiom.getSubject(),
+                    factory.getOWLLiteral(newLabel));
+        } else {
+            // Use other annotations as they are.
+            translatedAxiom = axiom;
+        }
+    }
+
+    @Override
+    public void visit(OWLSubClassOfAxiom axiom) {
+        OWLClassExpression trSub = translateExpression(axiom.getSubClass(), true);
+        OWLClassExpression trSuper = translateExpression(axiom.getSuperClass(), false);
+
+        // Both sides of the axiom need to be translatable.
+        if ( trSub == null || trSuper == null ) {
+            return;
+        }
+
+        // Avoid circular references.
+        if ( trSub.getClassesInSignature().contains(trSuper) ) {
+            return;
+        }
+
+        // No need for this SubClassOf axiom if the taxon-neutral class is already a
+        // subclass of the translated superclass.
+        if ( !trSub.equals(axiom.getSubClass()) ) {
+            if ( reasoner.getSuperClasses(ecMap.get(axiom.getSubClass()), false).getFlattened().contains(trSuper) ) {
+                return;
+            }
+
+            Set<OWLClass> ancs = new HashSet<OWLClass>();
+            ancs.addAll(reasoner.getSuperClasses(ecMap.get(axiom.getSubClass()), false).getFlattened());
+            ancs.addAll(reasoner.getEquivalentClasses(ecMap.get(axiom.getSubClass())).getEntities());
+            for ( OWLClass p : ancs ) {
+                for ( OWLSubClassOfAxiom sca : ontology.getSubClassAxiomsForSubClass(p) ) {
+                    if ( sca.getSuperClass().equals(trSuper) ) {
+                        return;
+                    }
+                }
+            }
+        }
+
+        translatedAxiom = factory.getOWLSubClassOfAxiom(trSub, trSuper);
     }
 }
