@@ -40,6 +40,7 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
 
     private OWLClass taxClass;
     private OWLObjectProperty linkProperty;
+    private Set<OWLObjectProperty> includedProperties = null;
     private String suffix;
 
     private OWLOntology ontology;
@@ -93,6 +94,20 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
      */
     public void setTranslateObjectIntersectionOf(boolean b) {
         translateObjectIntersectionOf = b;
+    }
+
+    /**
+     * add the specified object property to the list of properties to include in the
+     * merged ontology.
+     * 
+     * @param p The IRI of the object property to include.
+     */
+    public void includeProperty(IRI p) {
+        if ( includedProperties == null ) {
+            includedProperties = new HashSet<OWLObjectProperty>();
+        }
+
+        includedProperties.add(factory.getOWLObjectProperty(p));
     }
 
     /**
@@ -326,6 +341,19 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
                     if ( sca.getSuperClass().equals(trSuper) ) {
                         return;
                     }
+                }
+            }
+
+            if ( includedProperties != null && includedProperties.size() > 0 ) {
+                boolean ok = false;
+                for ( OWLObjectProperty p : axiom.getObjectPropertiesInSignature() ) {
+                    if ( includedProperties.contains(p) ) {
+                        ok = true;
+                        break;
+                    }
+                }
+                if ( !ok ) {
+                    return;
                 }
             }
         }

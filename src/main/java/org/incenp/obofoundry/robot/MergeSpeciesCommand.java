@@ -15,6 +15,7 @@ public class MergeSpeciesCommand extends BasePlugin {
         options.addOption("t", "taxon", true, "unfoled for specified taxon");
         options.addOption("p", "property", true, "unfold on specified property");
         options.addOption("s", "suffix", true, "suffix to append to class labels");
+        options.addOption("q", "include-property", true, "object property to include");
         options.addOption("x", "translate-oio-expr", false, "enable translation of ObjectIntersectionOf expressions");
         options.addOption("r", "reasoner", true, "reasoner to use");
     }
@@ -34,6 +35,12 @@ public class MergeSpeciesCommand extends BasePlugin {
 
         if ( line.hasOption('x') ) {
             merger.setTranslateObjectIntersectionOf(true);
+        }
+
+        if ( line.hasOption('q') ) {
+            for ( String item : line.getOptionValues('q') ) {
+                merger.includeProperty(CurieManager.getInstance().expand(item));
+            }
         }
 
         merger.merge(taxonIRI, suffix);
