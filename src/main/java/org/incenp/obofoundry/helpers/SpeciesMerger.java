@@ -56,6 +56,8 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     private OWLAxiom translatedAxiom;
     private OWLClass subject;
 
+    private boolean translateObjectIntersectionOf = false;
+
     /**
      * Creates a new instance with BFO:0000050 as the linking property.
      * 
@@ -83,6 +85,17 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     }
 
     /**
+     * Enable or disable the translation of ObjectIntersectionOf class expressions.
+     * This is disabled by default for compatibility with Chris Mungall's original
+     * implementation.
+     * 
+     * @param b {@code true} to enable translating ObjectIntersectionOf expressions.
+     */
+    public void setTranslateObjectIntersectionOf(boolean b) {
+        translateObjectIntersectionOf = b;
+    }
+
+    /**
      * Unfold classes for the specified taxon.
      * 
      * @param taxon  The taxon to unfold for.
@@ -102,7 +115,8 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
             }
 
             if ( !reasoner.isSatisfiable(c) ) {
-                throw new ReasoningException("Unsatisfiable class: " + c);
+                throw new ReasoningException("Ontology contains unsatisfiable classes",
+                        reasoner.getUnsatisfiableClasses().getEntitiesMinusBottom());
             }
 
             Set<OWLAxiom> axioms = new HashSet<OWLAxiom>();
@@ -204,11 +218,24 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
         } else {
             if ( x instanceof OWLObjectSomeValuesFrom ) {
                 OWLObjectSomeValuesFrom svf = (OWLObjectSomeValuesFrom) x;
-                return factory.getOWLObjectSomeValuesFrom(svf.getProperty(),
-                        translateExpression(svf.getFiller(), mustBeEquiv));
+                OWLClassExpression filler = translateExpression(svf.getFiller(), mustBeEquiv);
+                if ( filler != null ) {
+                    return factory.getOWLObjectSomeValuesFrom(svf.getProperty(), filler);
+                }
+            } else if ( x instanceof OWLObjectIntersectionOf && translateObjectIntersectionOf ) {
+                OWLObjectIntersectionOf oio = (OWLObjectIntersectionOf) x;
+                Set<OWLClassExpression> operands = new HashSet<OWLClassExpression>();
+                for ( OWLClassExpression operand : oio.getOperands() ) {
+                    OWLClassExpression translatedOperand = translateExpression(operand, mustBeEquiv);
+                    if ( translatedOperand != null ) {
+                        operands.add(translatedOperand);
+                    }
+                }
+                if ( operands.size() == oio.getOperands().size() ) {
+                    return factory.getOWLObjectIntersectionOf(operands);
+                }
             }
         }
-
         return null;
     }
 

@@ -15,6 +15,7 @@ public class MergeSpeciesCommand extends BasePlugin {
         options.addOption("t", "taxon", true, "unfoled for specified taxon");
         options.addOption("p", "property", true, "unfold on specified property");
         options.addOption("s", "suffix", true, "suffix to append to class labels");
+        options.addOption("x", "translate-oio-expr", false, "enable translation of ObjectIntersectionOf expressions");
         options.addOption("r", "reasoner", true, "reasoner to use");
     }
 
@@ -30,6 +31,10 @@ public class MergeSpeciesCommand extends BasePlugin {
 
         SpeciesMerger merger = new SpeciesMerger(state.getOntology(), CommandLineHelper.getReasonerFactory(line),
                 propertyIRI);
+
+        if ( line.hasOption('x') ) {
+            merger.setTranslateObjectIntersectionOf(true);
+        }
 
         merger.merge(taxonIRI, suffix);
     }
