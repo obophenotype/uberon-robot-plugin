@@ -1,7 +1,6 @@
 package org.incenp.obofoundry.robot;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.incenp.obofoundry.helpers.EquivalenceSetMerger;
 import org.obolibrary.obo2owl.Obo2OWLConstants;
 import org.obolibrary.robot.CommandLineHelper;
@@ -16,16 +15,14 @@ public class MergeEquivalentSetsCommand extends BasePlugin {
         super("merge-equivalent-sets", "merge sets of equivalent classes",
                 "robot merge-equivalent-sets [-s PREFIX,...] [-l PREFIX,...] [-c PREFIX,...] [-d PREFIX,...] [-P PREFIX,...]");
 
-        options.addOption(Option.builder("s").longOpt("iri-priority").hasArgs().valueSeparator(',')
-                .desc("Order of priority to determine the representative IRI").build());
-        options.addOption(Option.builder("l").longOpt("label-priority").hasArgs().valueSeparator(',')
-                .desc("Order of priority to determine which LABEL should be used post-merge").build());
-        options.addOption(Option.builder("c").longOpt("comment-priority").hasArgs().valueSeparator(',')
-                .desc("Order of priority to determine which COMMENT should be used post-merge").build());
-        options.addOption(Option.builder("d").longOpt("definition-priority").hasArgs().valueSeparator(',')
-                .desc("Order of priority to determine which DEFINITION should be used post-merge").build());
-        options.addOption(Option.builder("p").longOpt("preserve").hasArgs().valueSeparator(',')
-                .desc("Disallow merging classes with the specified prefixes").build());
+        options.addOption("s", "iri-priority", true, "order of priority to determine the representative IRI");
+        options.addOption("l", "label-priority", true,
+                "order of priority to determine which LABEL should be used post-merge");
+        options.addOption("c", "comment-priority", true,
+                "order of priority to determine which COMMENT should be used post-merge");
+        options.addOption("d", "definition-priority", true,
+                "order of priority to determine which DEFINITION should be used post-merge");
+        options.addOption("p", "preserve", true, "disallow merging classes with the specified prefixes");
 
         options.addOption("r", "reasoner", true, "reasoner to use");
     }
@@ -65,12 +62,24 @@ public class MergeEquivalentSetsCommand extends BasePlugin {
     }
 
     private void setScores(OWLAnnotationProperty p, String[] prefixes, EquivalenceSetMerger merger) {
-        int score = prefixes.length;
+        int autoScore = prefixes.length;
         for ( String prefix : prefixes ) {
+            Double score = new Double(autoScore--);
+            String[] parts = prefix.split("=", 2);
+            if ( parts.length == 2 ) {
+                prefix = parts[0];
+                try {
+                    score = Double.parseDouble(parts[1]);
+                } catch ( NumberFormatException e ) {
+                    throw new RuntimeException(
+                            String.format("Invalid score value for prefix %s: %s\n", prefix, parts[1]));
+                }
+            }
+
             if ( p != null ) {
-                merger.setPropertyPrefixScore(p, prefix, new Double(score--));
+                merger.setPropertyPrefixScore(p, prefix, score);
             } else {
-                merger.setPrefixScore(prefix, new Double(score--));
+                merger.setPrefixScore(prefix, score);
             }
         }
     }
