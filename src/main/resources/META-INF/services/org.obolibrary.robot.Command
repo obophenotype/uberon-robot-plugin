@@ -1,2 +1,3 @@
 org.incenp.obofoundry.robot.HelloCommand
 org.incenp.obofoundry.robot.MergeSpeciesCommand
+org.incenp.obofoundry.robot.MergeEquivalentSetsCommand
