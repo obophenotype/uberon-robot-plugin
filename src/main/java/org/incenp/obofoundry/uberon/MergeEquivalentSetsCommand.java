@@ -12,7 +12,7 @@ public class MergeEquivalentSetsCommand extends BasePlugin {
 
     public MergeEquivalentSetsCommand() {
         super("merge-equivalent-sets", "merge sets of equivalent classes",
-                "robot merge-equivalent-sets [-s PREFIX,...] [-l PREFIX,...] [-c PREFIX,...] [-d PREFIX,...] [-P PREFIX,...]");
+                "robot merge-equivalent-sets [-s PREFIX[=SCORE]] [-l PREFIX[=SCORE]] [-c PREFIX[=SCORE]] [-d PREFIX[=SCORE]] [-P PREFIX]");
 
         options.addOption("s", "iri-priority", true, "order of priority to determine the representative IRI");
         options.addOption("l", "label-priority", true,
