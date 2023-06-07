@@ -1,4 +1,4 @@
-package org.incenp.obofoundry.robot;
+package org.incenp.obofoundry.uberon;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;

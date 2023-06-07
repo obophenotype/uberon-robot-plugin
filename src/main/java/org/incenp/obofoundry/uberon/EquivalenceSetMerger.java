@@ -1,4 +1,4 @@
-package org.incenp.obofoundry.helpers;
+package org.incenp.obofoundry.uberon;
 
 import java.util.HashMap;
 import java.util.HashSet;

@@ -1,7 +1,6 @@
-package org.incenp.obofoundry.robot;
+package org.incenp.obofoundry.uberon;
 
 import org.apache.commons.cli.CommandLine;
-import org.incenp.obofoundry.helpers.EquivalenceSetMerger;
 import org.obolibrary.obo2owl.Obo2OWLConstants;
 import org.obolibrary.robot.CommandLineHelper;
 import org.obolibrary.robot.CommandState;
