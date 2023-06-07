@@ -1,7 +1,6 @@
 package org.incenp.obofoundry.robot;
 
 import org.apache.commons.cli.CommandLine;
-import org.incenp.obofoundry.helpers.CurieManager;
 import org.incenp.obofoundry.helpers.SpeciesMerger;
 import org.obolibrary.robot.CommandLineHelper;
 import org.obolibrary.robot.CommandState;
@@ -26,8 +25,8 @@ public class MergeSpeciesCommand extends BasePlugin {
             throw new IllegalArgumentException("Missing --taxon argument");
         }
 
-        IRI taxonIRI = CurieManager.getInstance().expand(line.getOptionValue('t'));
-        IRI propertyIRI = CurieManager.getInstance().expand(line.getOptionValue("p", "BFO:0000050"));
+        IRI taxonIRI = getIRI(line.getOptionValue("taxon"), "taxon");
+        IRI propertyIRI = getIRI(line.getOptionValue("property", "BFO:0000050"), "property");
         String suffix = line.getOptionValue("s", "species specific");
 
         SpeciesMerger merger = new SpeciesMerger(state.getOntology(), CommandLineHelper.getReasonerFactory(line),
@@ -38,12 +37,11 @@ public class MergeSpeciesCommand extends BasePlugin {
         }
 
         if ( line.hasOption('q') ) {
-            for ( String item : line.getOptionValues('q') ) {
-                merger.includeProperty(CurieManager.getInstance().expand(item));
+            for ( String item : line.getOptionValues("include-property") ) {
+                merger.includeProperty(getIRI(item, "include-property"));
             }
         }
 
         merger.merge(taxonIRI, suffix);
     }
-
 }

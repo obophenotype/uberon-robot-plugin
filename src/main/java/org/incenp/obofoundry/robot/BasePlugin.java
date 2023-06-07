@@ -5,6 +5,8 @@ import org.apache.commons.cli.Options;
 import org.obolibrary.robot.Command;
 import org.obolibrary.robot.CommandLineHelper;
 import org.obolibrary.robot.CommandState;
+import org.obolibrary.robot.IOHelper;
+import org.semanticweb.owlapi.model.IRI;
 
 /**
  * Helper base class for ROBOT commands.
@@ -21,6 +23,7 @@ public abstract class BasePlugin implements Command {
     private String usage;
     private boolean with_io;
     protected Options options;
+    private IOHelper ioHelper;
 
     /**
      * Creates a new command.
@@ -91,6 +94,8 @@ public abstract class BasePlugin implements Command {
             state = new CommandState();
         }
 
+        ioHelper = CommandLineHelper.getIOHelper(line);
+
         if ( with_io ) {
             state = CommandLineHelper.updateInputOntology(CommandLineHelper.getIOHelper(line), state, line);
         }
@@ -111,5 +116,19 @@ public abstract class BasePlugin implements Command {
      *                   operation.
      */
     public abstract void performOperation(CommandState state, CommandLine line) throws Exception;
+
+    /**
+     * Create an IRI from a user-specified source. This delegates the task of
+     * expanding CURIEs to ROBOT, which may use whatever informations it has (such
+     * as prefix mappings specified using the --prefix option).
+     * 
+     * @param Term  the term to transform into an IRI.
+     * @param field The source where the term comes from. Used in ROBOT's error
+     *              message, if the term cannot be transformed into an IRI.
+     * @return The resulting IRI.
+     */
+    protected IRI getIRI(String term, String field) {
+        return CommandLineHelper.maybeCreateIRI(ioHelper, term, field);
+    }
 
 }
