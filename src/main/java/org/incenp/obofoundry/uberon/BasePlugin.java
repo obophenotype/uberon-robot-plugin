@@ -21,7 +21,6 @@ public abstract class BasePlugin implements Command {
     private String name;
     private String description;
     private String usage;
-    private boolean with_io;
     protected Options options;
     private IOHelper ioHelper;
 
@@ -32,32 +31,15 @@ public abstract class BasePlugin implements Command {
      *                    line.
      * @param description The description of the command that ROBOT will display.
      * @param usage       The help message for the command.
-     * @param with_io     If true, input/output options will be handled
-     *                    automatically.
      */
-    protected BasePlugin(String name, String description, String usage, boolean with_io) {
+    protected BasePlugin(String name, String description, String usage) {
         this.name = name;
         this.description = description;
         this.usage = usage;
-        this.with_io = with_io;
         options = CommandLineHelper.getCommonOptions();
-        if ( with_io ) {
-            options.addOption("i", "input", true, "load ontology from file");
-            options.addOption("I", "input-iri", true, "load ontology from IRI");
-            options.addOption("o", "output", true, "save ontology to file");
-        }
-    }
-
-    /**
-     * Creates a new command with default I/O options.
-     * 
-     * @param name        The command name, as it should be involed on the command
-     *                    line.
-     * @param description The description of the command that ROBOT will display.
-     * @param usage       The help message for the command.
-     */
-    protected BasePlugin(String name, String description, String usage) {
-        this(name, description, usage, true);
+        options.addOption("i", "input", true, "load ontology from file");
+        options.addOption("I", "input-iri", true, "load ontology from IRI");
+        options.addOption("o", "output", true, "save ontology to file");
     }
 
     public String getName() {
@@ -90,19 +72,12 @@ public abstract class BasePlugin implements Command {
             return null;
         }
 
-        if ( state == null ) {
-            state = new CommandState();
-        }
-
         ioHelper = CommandLineHelper.getIOHelper(line);
+        state = CommandLineHelper.updateInputOntology(CommandLineHelper.getIOHelper(line), state, line);
 
-        if ( with_io ) {
-            state = CommandLineHelper.updateInputOntology(CommandLineHelper.getIOHelper(line), state, line);
-        }
         performOperation(state, line);
-        if ( with_io ) {
-            CommandLineHelper.maybeSaveOutput(line, state.getOntology());
-        }
+
+        CommandLineHelper.maybeSaveOutput(line, state.getOntology());
 
         return state;
     }
