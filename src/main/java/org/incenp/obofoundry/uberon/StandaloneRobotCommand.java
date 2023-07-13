@@ -68,6 +68,7 @@ public class StandaloneRobotCommand {
 
         m.addCommand("merge-species", new MergeSpeciesCommand());
         m.addCommand("merge-equivalent-sets", new MergeEquivalentSetsCommand());
+        m.addCommand("expand-curies", new CurieExpanderCommand());
 
         m.main(args);
     }
