@@ -17,7 +17,7 @@ import org.semanticweb.owlapi.util.OWLObjectTransformer;
 
 public class CurieExpanderCommand extends BasePlugin {
 
-    protected CurieExpanderCommand() {
+	public CurieExpanderCommand() {
         super("expand-curies", "expand CURIEs in annotations", "robot expand-curies -a <ANNOT>");
         options.addOption("a", "annotation", true, "expand CURIEs in annotations with the specified property");
     }
