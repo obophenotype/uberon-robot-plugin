@@ -48,13 +48,11 @@ mvn clean package
 
 This will produce two Jar files in the `target` directory.
 
-The `uberon-robot-plugin-X.Y.Z.jar` file is the plugin itself, to be
-used with a version of ROBOT that supports plugins. If you have such a
-version (which probably means you have compiled it yourself, as no such
-version has been released yet), place this file in your plugins
-directory (by default `~/.robot/plugins`), then call the commands by
-prefixing them with the basename of the Jar file in the plugins
-directory.
+The `uberon.jar` file is the plugin itself, to be used with a version of
+ROBOT that supports plugins. If you have such a version, place this file
+in your plugins directory (by default `~/.robot/plugins`), then call the
+commands by prefixing them with the basename of the Jar file in the
+plugins directory.
 
 For example, if you placed the plugin at `~/.robot/plugins/uberon.jar`,
 you may call the `merge-species` command as follows:
