@@ -58,6 +58,7 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     private OWLClass subject;
 
     private boolean translateObjectIntersectionOf = false;
+    private boolean removeDeclaration = false;
 
     /**
      * Creates a new instance with BFO:0000050 as the linking property.
@@ -94,6 +95,18 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
      */
     public void setTranslateObjectIntersectionOf(boolean b) {
         translateObjectIntersectionOf = b;
+    }
+
+    /**
+     * Enables or disables removal of declaration axioms for classes that have been
+     * replaced by a translated expression. This avoids a lot of dangling and unused
+     * classes in the resulting ontology. This is disabled by default for
+     * compatibility with Chris Mungall's original implementation.
+     * 
+     * @param b {@code true} to enable removal of declaration axioms.
+     */
+    public void setRemoveDeclarationAxiom(boolean b) {
+        removeDeclaration = b;
     }
 
     /**
@@ -159,6 +172,10 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
                 if ( translatedAxiom != null && !translatedAxiom.getClassesInSignature().contains(txRootClass) ) {
                     newAxioms.add(translatedAxiom);
                 }
+            }
+
+            if ( removeDeclaration && ecMap.containsKey(c) ) {
+                axioms.add(factory.getOWLDeclarationAxiom(c));
             }
 
             manager.removeAxioms(ontology, axioms);

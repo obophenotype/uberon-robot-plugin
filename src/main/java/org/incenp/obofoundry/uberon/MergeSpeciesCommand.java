@@ -15,6 +15,8 @@ public class MergeSpeciesCommand extends BasePlugin {
         options.addOption("s", "suffix", true, "suffix to append to class labels");
         options.addOption("q", "include-property", true, "object property to include");
         options.addOption("x", "translate-oio-expr", false, "enable translation of ObjectIntersectionOf expressions");
+        options.addOption("d", "remove-declarations", false,
+                "enable removal of declaration axioms for translated classes");
         options.addOption("r", "reasoner", true, "reasoner to use");
     }
 
@@ -39,6 +41,10 @@ public class MergeSpeciesCommand extends BasePlugin {
             for ( String item : line.getOptionValues("include-property") ) {
                 merger.includeProperty(getIRI(item, "include-property"));
             }
+        }
+
+        if ( line.hasOption('d') ) {
+            merger.setRemoveDeclarationAxiom(true);
         }
 
         merger.merge(taxonIRI, suffix);
