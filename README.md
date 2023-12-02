@@ -28,6 +28,22 @@ except that the `-q`, `--include-property` option must be repeated for
 each property to include (that is, use `-q RO:0002202 -q RO:0002496`
 instead of `-q RO:0002202 RO:0002496`).
 
+The command offers additional features that were not available in the
+original OWLTools command. They are all disabled by default, use the
+following options to enable them:
+
+* `-d`: delete class declaration axioms for classes that have been
+  merged;
+* `-x`: translate more class types of class expression than just
+  _ObjectSomeValuesFrom_ (_ObjectIntersectionOf_, _ObjectUnionOf_,
+  _ObjectComplementOf_, and _Object(Exact|Min|Max)Cardinality_
+  expressions are supported);
+* `-g`: translate general class axioms that refer to a class that has
+  been merged;
+* `-G`: delete (instead of translating) general class axioms that refer
+  to a class that has been merged.
+
+
 ### merge-equivalent-sets
 This command provides the same feature as OWLTools’
 `--merge-equivalence-sets` command, also used in Uberon to build the
