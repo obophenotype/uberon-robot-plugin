@@ -15,9 +15,15 @@ import org.semanticweb.owlapi.model.OWLClassExpression;
 import org.semanticweb.owlapi.model.OWLDataFactory;
 import org.semanticweb.owlapi.model.OWLEquivalentClassesAxiom;
 import org.semanticweb.owlapi.model.OWLLiteral;
+import org.semanticweb.owlapi.model.OWLNaryBooleanClassExpression;
+import org.semanticweb.owlapi.model.OWLObjectComplementOf;
+import org.semanticweb.owlapi.model.OWLObjectExactCardinality;
 import org.semanticweb.owlapi.model.OWLObjectIntersectionOf;
+import org.semanticweb.owlapi.model.OWLObjectMaxCardinality;
+import org.semanticweb.owlapi.model.OWLObjectMinCardinality;
 import org.semanticweb.owlapi.model.OWLObjectProperty;
 import org.semanticweb.owlapi.model.OWLObjectSomeValuesFrom;
+import org.semanticweb.owlapi.model.OWLObjectUnionOf;
 import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
@@ -57,7 +63,7 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     private OWLAxiom translatedAxiom;
     private OWLClass subject;
 
-    private boolean translateObjectIntersectionOf = false;
+    private boolean extendedTranslation = false;
     private GCAMergeMode gcaMode = GCAMergeMode.ORIGINAL;
     private boolean removeDeclaration = false;
 
@@ -88,14 +94,16 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     }
 
     /**
-     * Enable or disable the translation of ObjectIntersectionOf class expressions.
-     * This is disabled by default for compatibility with Chris Mungall's original
-     * implementation.
+     * Enables or disables the translation of more class expressions.
+     * <p>
+     * The default behaviour, for compatibility with Chris Mungall's original
+     * implementation, is to translate only ObjectSomeValuesFrom expressions. This
+     * option enables the additional translation of some other types of expression.
      * 
-     * @param b {@code true} to enable translating ObjectIntersectionOf expressions.
+     * @param b {@code true} to enable translating additional expressions.
      */
-    public void setTranslateObjectIntersectionOf(boolean b) {
-        translateObjectIntersectionOf = b;
+    public void setExtendedTranslation(boolean b) {
+        extendedTranslation = b;
     }
 
     /**
@@ -309,21 +317,56 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
                 if ( filler != null ) {
                     return factory.getOWLObjectSomeValuesFrom(svf.getProperty(), filler);
                 }
-            } else if ( x instanceof OWLObjectIntersectionOf && translateObjectIntersectionOf ) {
+            } else if ( x instanceof OWLObjectIntersectionOf && extendedTranslation ) {
                 OWLObjectIntersectionOf oio = (OWLObjectIntersectionOf) x;
-                Set<OWLClassExpression> operands = new HashSet<OWLClassExpression>();
-                for ( OWLClassExpression operand : oio.getOperands() ) {
-                    OWLClassExpression translatedOperand = translateExpression(operand, mustBeEquiv);
-                    if ( translatedOperand != null ) {
-                        operands.add(translatedOperand);
-                    }
-                }
+                Set<OWLClassExpression> operands = translateExpressionOperands(oio, mustBeEquiv);
                 if ( operands.size() == oio.getOperands().size() ) {
                     return factory.getOWLObjectIntersectionOf(operands);
+                }
+            } else if ( x instanceof OWLObjectUnionOf && extendedTranslation ) {
+                OWLObjectUnionOf ouo = (OWLObjectUnionOf) x;
+                Set<OWLClassExpression> operands = translateExpressionOperands(ouo, mustBeEquiv);
+                if ( operands.size() == ouo.getOperands().size() ) {
+                    return factory.getOWLObjectUnionOf(operands);
+                }
+            } else if ( x instanceof OWLObjectComplementOf && extendedTranslation ) {
+                OWLObjectComplementOf oco = (OWLObjectComplementOf) x;
+                OWLClassExpression operand = translateExpression(oco.getOperand(), mustBeEquiv);
+                if ( operand != null ) {
+                    return factory.getOWLObjectComplementOf(operand);
+                }
+            } else if ( x instanceof OWLObjectExactCardinality && extendedTranslation ) {
+                OWLObjectExactCardinality oec = (OWLObjectExactCardinality) x;
+                OWLClassExpression operand = translateExpression(oec.getFiller(), mustBeEquiv);
+                if ( operand != null ) {
+                    return factory.getOWLObjectExactCardinality(oec.getCardinality(), oec.getProperty(), operand);
+                }
+            } else if ( x instanceof OWLObjectMinCardinality && extendedTranslation ) {
+                OWLObjectMinCardinality omc = (OWLObjectMinCardinality) x;
+                OWLClassExpression operand = translateExpression(omc.getFiller(), mustBeEquiv);
+                if ( operand != null ) {
+                    return factory.getOWLObjectMinCardinality(omc.getCardinality(), omc.getProperty(), operand);
+                }
+            } else if ( x instanceof OWLObjectMaxCardinality && extendedTranslation ) {
+                OWLObjectMaxCardinality omc = (OWLObjectMaxCardinality) x;
+                OWLClassExpression operand = translateExpression(omc.getFiller(), mustBeEquiv);
+                if ( operand != null ) {
+                    return factory.getOWLObjectMaxCardinality(omc.getCardinality(), omc.getProperty(), operand);
                 }
             }
         }
         return null;
+    }
+
+    private Set<OWLClassExpression> translateExpressionOperands(OWLNaryBooleanClassExpression x, boolean mustBeEquiv) {
+        Set<OWLClassExpression> operands = new HashSet<OWLClassExpression>();
+        for ( OWLClassExpression operand : x.getOperands() ) {
+            OWLClassExpression translatedOperand = translateExpression(operand, mustBeEquiv);
+            if ( translatedOperand != null ) {
+                operands.add(translatedOperand);
+            }
+        }
+        return operands;
     }
 
     private boolean isSkippable(OWLClass c) {

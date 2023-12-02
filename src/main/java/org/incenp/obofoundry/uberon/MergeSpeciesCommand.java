@@ -14,7 +14,7 @@ public class MergeSpeciesCommand extends BasePlugin {
         options.addOption("p", "property", true, "unfold on specified property");
         options.addOption("s", "suffix", true, "suffix to append to class labels");
         options.addOption("q", "include-property", true, "object property to include");
-        options.addOption("x", "translate-oio-expr", false, "enable translation of ObjectIntersectionOf expressions");
+        options.addOption("x", "extended-translation", false, "enable translation of more class expressions");
         options.addOption("g", "translate-gcas", false, "enable translation of affected general class axioms");
         options.addOption("G", "remove-gcas", false, "remove general class axioms affected by merge");
         options.addOption("d", "remove-declarations", false,
@@ -36,7 +36,7 @@ public class MergeSpeciesCommand extends BasePlugin {
                 propertyIRI);
 
         if ( line.hasOption('x') ) {
-            merger.setTranslateObjectIntersectionOf(true);
+            merger.setExtendedTranslation(true);
         }
 
         if ( line.hasOption('g') ) {
