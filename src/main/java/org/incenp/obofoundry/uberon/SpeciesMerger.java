@@ -362,8 +362,9 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
             }
 
             if ( includedProperties != null && includedProperties.size() > 0 ) {
-                boolean ok = false;
-                for ( OWLObjectProperty p : axiom.getObjectPropertiesInSignature() ) {
+                Set<OWLObjectProperty> props = axiom.getObjectPropertiesInSignature();
+                boolean ok = props.isEmpty();
+                for ( OWLObjectProperty p : props ) {
                     if ( includedProperties.contains(p) ) {
                         ok = true;
                         break;
