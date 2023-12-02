@@ -58,6 +58,7 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     private OWLClass subject;
 
     private boolean translateObjectIntersectionOf = false;
+    private GCAMergeMode gcaMode = GCAMergeMode.ORIGINAL;
     private boolean removeDeclaration = false;
 
     /**
@@ -95,6 +96,21 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
      */
     public void setTranslateObjectIntersectionOf(boolean b) {
         translateObjectIntersectionOf = b;
+    }
+
+    /**
+     * Sets the behaviour for general class axioms (GCAs) that have one (or more)
+     * merged class in their signature.
+     * <p>
+     * The default behaviour, for compatibility with Chris Mungall's original
+     * implementation, is to keep such axioms as they are (referring to now merged
+     * classes). Set to {@link GCAMergeMode.TRANSLATE} to translate those axioms, or
+     * to {@link GCAMergeMode.DELETE} to remove them entirely.
+     * 
+     * @param mode A value indicating how general class axioms should be processed.
+     */
+    public void setGCAMode(GCAMergeMode mode) {
+        gcaMode = mode;
     }
 
     /**
@@ -181,6 +197,45 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
             manager.removeAxioms(ontology, axioms);
             manager.addAxioms(ontology, newAxioms);
         }
+
+        // Translate or delete general class axioms?
+        if ( gcaMode != GCAMergeMode.ORIGINAL ) {
+            Set<OWLAxiom> gcAxioms = new HashSet<OWLAxiom>();
+            gcAxioms.addAll(ontology.getGeneralClassAxioms());
+
+            Set<OWLAxiom> newAxioms = new HashSet<OWLAxiom>();
+            for ( OWLAxiom axiom : gcAxioms ) {
+                if ( !isAxiomUsingMergedClass(axiom) ) {
+                    newAxioms.add(axiom); // Keep unaffected axiom
+                } else if ( gcaMode == GCAMergeMode.TRANSLATE ) {
+                    translatedAxiom = null;
+                    axiom.accept(this);
+
+                    if ( translatedAxiom != null ) {
+                        if ( !axiom.getAnnotations().isEmpty() ) {
+                            // Keep original annotations
+                            translatedAxiom = translatedAxiom.getAnnotatedAxiom(axiom.getAnnotations());
+                        }
+                        newAxioms.add(translatedAxiom);
+                    }
+                }
+            }
+
+            manager.removeAxioms(ontology, gcAxioms);
+            manager.addAxioms(ontology, newAxioms);
+        }
+    }
+
+    /*
+     * Check whether an axiom is referring to one of the to-be-merged classes.
+     */
+    private boolean isAxiomUsingMergedClass(OWLAxiom axiom) {
+        for ( OWLClass sc : axiom.getClassesInSignature() ) {
+            if ( ecMap.containsKey(sc) ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /*
@@ -343,6 +398,12 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
             return;
         }
 
+        // No need to perform the checks below if this is a general class axiom
+        if ( axiom.getSubClass().isAnonymous() ) {
+            translatedAxiom = factory.getOWLSubClassOfAxiom(trSub, trSuper);
+            return;
+        }
+
         // No need for this SubClassOf axiom if the taxon-neutral class is already a
         // subclass of the translated superclass.
         if ( !trSub.equals(axiom.getSubClass()) ) {
@@ -377,5 +438,19 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
         }
 
         translatedAxiom = factory.getOWLSubClassOfAxiom(trSub, trSuper);
+    }
+
+    /**
+     * Mode of operation for general class axioms.
+     */
+    public enum GCAMergeMode {
+        /** Keep general class axioms as they are. */
+        ORIGINAL,
+
+        /** Translate general class axioms that refer to a to-be-merged class. */
+        TRANSLATE,
+
+        /** Delete general class axioms that refer to a to-be-merged class. */
+        DELETE
     }
 }

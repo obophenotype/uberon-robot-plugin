@@ -15,6 +15,8 @@ public class MergeSpeciesCommand extends BasePlugin {
         options.addOption("s", "suffix", true, "suffix to append to class labels");
         options.addOption("q", "include-property", true, "object property to include");
         options.addOption("x", "translate-oio-expr", false, "enable translation of ObjectIntersectionOf expressions");
+        options.addOption("g", "translate-gcas", false, "enable translation of affected general class axioms");
+        options.addOption("G", "remove-gcas", false, "remove general class axioms affected by merge");
         options.addOption("d", "remove-declarations", false,
                 "enable removal of declaration axioms for translated classes");
         options.addOption("r", "reasoner", true, "reasoner to use");
@@ -35,6 +37,12 @@ public class MergeSpeciesCommand extends BasePlugin {
 
         if ( line.hasOption('x') ) {
             merger.setTranslateObjectIntersectionOf(true);
+        }
+
+        if ( line.hasOption('g') ) {
+            merger.setGCAMode(SpeciesMerger.GCAMergeMode.TRANSLATE);
+        } else if ( line.hasOption('G') ) {
+            merger.setGCAMode(SpeciesMerger.GCAMergeMode.DELETE);
         }
 
         if ( line.hasOption('q') ) {
