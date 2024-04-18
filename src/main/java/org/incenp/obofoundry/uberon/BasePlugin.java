@@ -106,4 +106,8 @@ public abstract class BasePlugin implements Command {
         return CommandLineHelper.maybeCreateIRI(ioHelper, term, field);
     }
 
+    protected IOHelper getIOHelper() {
+        return ioHelper;
+    }
+
 }
