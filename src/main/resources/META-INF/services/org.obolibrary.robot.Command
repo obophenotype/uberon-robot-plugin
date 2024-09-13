@@ -1,6 +1,3 @@
 org.incenp.obofoundry.uberon.MergeSpeciesCommand
 org.incenp.obofoundry.uberon.MergeEquivalentSetsCommand
-org.incenp.obofoundry.uberon.CurieExpanderCommand
-org.incenp.obofoundry.uberon.MetricsCommand
-org.incenp.obofoundry.uberon.OrcidExtractorCommand
 org.incenp.obofoundry.uberon.SpeciesSubsetCommand
