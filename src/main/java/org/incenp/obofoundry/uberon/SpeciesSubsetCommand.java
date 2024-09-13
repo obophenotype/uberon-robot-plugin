@@ -1,6 +1,7 @@
 package org.incenp.obofoundry.uberon;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -30,6 +31,8 @@ public class SpeciesSubsetCommand extends BasePlugin {
         options.addOption("t", "taxon", true, "the taxon to create a subset for");
         options.addOption("r", "reasoner", true, "reasoner to use");
         options.addOption(null, "subset-name", true, "IRI to use to tag in-subset classes");
+        options.addOption(null, "only-tag-in", true, "Only tag classes in the specified prefixes");
+        options.addOption(null, "write-tags-to", true, "Write in-subset tags to specified file");
     }
 
     @Override
@@ -39,22 +42,34 @@ public class SpeciesSubsetCommand extends BasePlugin {
         }
 
         OWLOntology ontology = state.getOntology();
+        OWLOntologyManager mgr = ontology.getOWLOntologyManager();
+
         IRI taxonID = getIRI(line.getOptionValue('t'), "taxon");
         OWLReasoner reasoner = CommandLineHelper.getReasonerFactory(line).createReasoner(ontology);
 
-        Set<OWLClass> inSubset = getSubset(ontology, reasoner, taxonID);
+        Set<OWLClass> subset = getSubset(ontology, reasoner, taxonID);
 
-        IRI subsetIRI = null;
-        if ( line.hasOption("subset-name") ) {
-            subsetIRI = IRI.create(line.getOptionValue("subset-name"));
-        } else {
-            subsetIRI = IRI.create("http://purl.obolibrary.org/obo/uberon/core#" + taxonID.getShortForm());
+        if (line.hasOption("subset-name")) {
+            IRI subsetIRI = IRI.create(line.getOptionValue("subset-name"));
+            ArrayList<String> prefixes = new ArrayList<String>();
+            if ( line.hasOption("only-tag-in") ) {
+                for ( String p : line.getOptionValues("only-tag-in") ) {
+                    prefixes.add(getIRI(p, "only-tag-in").toString());
+                }
+            }
+            Set<OWLAxiom> annotations = makeInSubsetAnnotations(ontology, subset, subsetIRI, prefixes);
+
+            if ( line.hasOption("write-tags-to") ) {
+                OWLOntology output = mgr.createOntology();
+                mgr.addAxioms(output, annotations);
+                getIOHelper().saveOntology(output, line.getOptionValue("write-tags-to"));
+            } else {
+                mgr.addAxioms(ontology, annotations);
+            }
         }
-        addSubsetAnnotations(ontology, inSubset, subsetIRI);
     }
 
     private Set<OWLClass> getSubset(OWLOntology ontology, OWLReasoner reasoner, IRI taxon) {
-
         OWLOntologyManager mgr = ontology.getOWLOntologyManager();
         OWLDataFactory factory = mgr.getOWLDataFactory();
 
@@ -73,9 +88,9 @@ public class SpeciesSubsetCommand extends BasePlugin {
         return allClasses;
     }
 
-    private void addSubsetAnnotations(OWLOntology ontology, Set<OWLClass> subset, IRI subsetIRI) {
-        OWLOntologyManager mgr = ontology.getOWLOntologyManager();
-        OWLDataFactory factory = mgr.getOWLDataFactory();
+    private Set<OWLAxiom> makeInSubsetAnnotations(OWLOntology ontology, Set<OWLClass> subset, IRI subsetIRI,
+            Collection<String> prefixes) {
+        OWLDataFactory factory = ontology.getOWLOntologyManager().getOWLDataFactory();
         OWLAnnotationProperty inSubset = factory.getOWLAnnotationProperty(IN_SUBSET);
 
         ArrayList<OWLAxiom> addAxioms = new ArrayList<OWLAxiom>();
@@ -83,12 +98,22 @@ public class SpeciesSubsetCommand extends BasePlugin {
                 factory.getOWLAnnotationProperty(SUBSET_PROPERTY)));
         for ( OWLClass c : subset ) {
             String iri = c.getIRI().toString();
+            boolean include = prefixes == null || prefixes.size() == 0;
 
-            if ( iri.startsWith("http://purl.obolibrary.org/obo/UBERON_") ) {
+            if ( !include && prefixes != null ) {
+                for ( String prefix : prefixes ) {
+                    if ( iri.startsWith(prefix) ) {
+                        include = true;
+                        continue;
+                    }
+                }
+            }
+
+            if ( include ) {
                 addAxioms.add(factory.getOWLAnnotationAssertionAxiom(inSubset, c.getIRI(), subsetIRI));
             }
         }
 
-        mgr.addAxioms(ontology, new HashSet<OWLAxiom>(addAxioms));
+        return new HashSet<OWLAxiom>(addAxioms);
     }
 }
