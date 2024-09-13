@@ -15,12 +15,10 @@ import org.semanticweb.owlapi.model.OWLClass;
 import org.semanticweb.owlapi.model.OWLDataFactory;
 import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
-import org.semanticweb.owlapi.model.parameters.Imports;
 import org.semanticweb.owlapi.reasoner.OWLReasoner;
 
 public class SpeciesSubsetCommand extends BasePlugin {
 
-    private static final IRI IN_TAXON = IRI.create("http://purl.obolibrary.org/obo/RO_0002162");
     private static final IRI IN_SUBSET = IRI.create("http://www.geneontology.org/formats/oboInOwl#inSubset");
     private static final IRI SUBSET_PROPERTY = IRI
             .create("http://www.geneontology.org/formats/oboInOwl#SubsetProperty");
@@ -30,6 +28,8 @@ public class SpeciesSubsetCommand extends BasePlugin {
                 "robot create-species-subset -i <FILE> -t TAXON -o <FILE>");
         options.addOption("t", "taxon", true, "the taxon to create a subset for");
         options.addOption("r", "reasoner", true, "reasoner to use");
+        options.addOption(null, "strategy", true, "Subsetting strategy to use (default|precise)");
+        options.addOption(null, "root", true, "Set the root(s) to start from (default: owl:Thing)");
         options.addOption(null, "subset-name", true, "IRI to use to tag in-subset classes");
         options.addOption(null, "only-tag-in", true, "Only tag classes in the specified prefixes");
         options.addOption(null, "write-tags-to", true, "Write in-subset tags to specified file");
@@ -43,11 +43,19 @@ public class SpeciesSubsetCommand extends BasePlugin {
 
         OWLOntology ontology = state.getOntology();
         OWLOntologyManager mgr = ontology.getOWLOntologyManager();
-
-        IRI taxonID = getIRI(line.getOptionValue('t'), "taxon");
         OWLReasoner reasoner = CommandLineHelper.getReasonerFactory(line).createReasoner(ontology);
 
-        Set<OWLClass> subset = getSubset(ontology, reasoner, taxonID);
+        IRI taxonID = getIRI(line.getOptionValue('t'), "taxon");
+
+        ArrayList<IRI> roots = null;
+        if ( line.hasOption("root") ) {
+            roots = new ArrayList<IRI>();
+            for ( String root : line.getOptionValues("root") ) {
+                roots.add(getIRI(root, "root"));
+            }
+        }
+
+        Set<OWLClass> subset = getStrategy(line).getSubset(ontology, reasoner, roots, taxonID);
 
         if (line.hasOption("subset-name")) {
             IRI subsetIRI = IRI.create(line.getOptionValue("subset-name"));
@@ -67,25 +75,6 @@ public class SpeciesSubsetCommand extends BasePlugin {
                 mgr.addAxioms(ontology, annotations);
             }
         }
-    }
-
-    private Set<OWLClass> getSubset(OWLOntology ontology, OWLReasoner reasoner, IRI taxon) {
-        OWLOntologyManager mgr = ontology.getOWLOntologyManager();
-        OWLDataFactory factory = mgr.getOWLDataFactory();
-
-        OWLAxiom ax = factory.getOWLSubClassOfAxiom(factory.getOWLThing(),
-                factory.getOWLObjectSomeValuesFrom(factory.getOWLObjectProperty(IN_TAXON), factory.getOWLClass(taxon)));
-        mgr.addAxiom(ontology, ax);
-
-        reasoner.flush();
-        Set<OWLClass> allClasses = ontology.getClassesInSignature(Imports.INCLUDED);
-        Set<OWLClass> unsats = reasoner.getUnsatisfiableClasses().getEntitiesMinusBottom();
-
-        allClasses.removeAll(unsats);
-
-        mgr.removeAxiom(ontology, ax);
-
-        return allClasses;
     }
 
     private Set<OWLAxiom> makeInSubsetAnnotations(OWLOntology ontology, Set<OWLClass> subset, IRI subsetIRI,
@@ -115,5 +104,14 @@ public class SpeciesSubsetCommand extends BasePlugin {
         }
 
         return new HashSet<OWLAxiom>(addAxioms);
+    }
+
+    private ISpeciesSubsetStrategy getStrategy(CommandLine line) {
+        String strategy = line.getOptionValue("strategy", "default");
+        if ( strategy.equals("precise") ) {
+            return new PreciseSpeciesSubsetter();
+        } else {
+            return new DefaultSpeciesSubsetter();
+        }
     }
 }
