@@ -15,7 +15,9 @@ import org.semanticweb.owlapi.model.OWLClass;
 import org.semanticweb.owlapi.model.OWLDataFactory;
 import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
+import org.semanticweb.owlapi.model.parameters.Imports;
 import org.semanticweb.owlapi.reasoner.OWLReasoner;
+import org.semanticweb.owlapi.util.OWLEntityRemover;
 
 public class SpeciesSubsetCommand extends BasePlugin {
 
@@ -33,6 +35,7 @@ public class SpeciesSubsetCommand extends BasePlugin {
         options.addOption(null, "subset-name", true, "IRI to use to tag in-subset classes");
         options.addOption(null, "only-tag-in", true, "Only tag classes in the specified prefixes");
         options.addOption(null, "write-tags-to", true, "Write in-subset tags to specified file");
+        options.addOption(null, "remove", false, "Remove all classes not in the subset from the output ontology");
     }
 
     @Override
@@ -71,9 +74,23 @@ public class SpeciesSubsetCommand extends BasePlugin {
                 OWLOntology output = mgr.createOntology();
                 mgr.addAxioms(output, annotations);
                 getIOHelper().saveOntology(output, line.getOptionValue("write-tags-to"));
+                mgr.removeOntology(output);
             } else {
                 mgr.addAxioms(ontology, annotations);
             }
+        }
+
+        if ( line.hasOption("remove") ) {
+            Set<OWLClass> excluded = ontology.getClassesInSignature(Imports.INCLUDED);
+            excluded.removeAll(subset);
+
+            OWLEntityRemover remover = new OWLEntityRemover(mgr.getOntologies());
+            for ( OWLClass c : excluded ) {
+                if ( !c.isTopEntity() && !c.isBottomEntity() ) {
+                    c.accept(remover);
+                }
+            }
+            mgr.applyChanges(remover.getChanges());
         }
     }
 
