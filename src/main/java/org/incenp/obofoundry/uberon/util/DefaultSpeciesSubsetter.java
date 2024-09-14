@@ -1,4 +1,35 @@
-package org.incenp.obofoundry.uberon;
+/*
+ * Uberon ROBOT plugin
+ * Copyright © 2024 Damien Goutte-Gattat
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of copyright holder nor the names of its contributors
+ *   may be used to endorse or promote products derived from this software
+ *   without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package org.incenp.obofoundry.uberon.util;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,6 +47,26 @@ import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.parameters.Imports;
 import org.semanticweb.owlapi.reasoner.OWLReasoner;
 
+/**
+ * The “default” strategy to create a taxon-specific subset.
+ * <p>
+ * This strategy is the same as the one implemented by OWLTools’ <a href=
+ * "https://github.com/owlcollab/owltools/blob/master/OWLTools-Core/src/main/java/owltools/mooncat/SpeciesSubsetterUtil.java">SpeciesSubsetterUtil</a>
+ * class.
+ * <p>
+ * Basically, we assert <code>THE_ROOT(s) in_taxon some THE_TAXON</code>, and
+ * exclude from the subset all classes that are unsatisfiable because of that
+ * assertion.
+ * <p>
+ * This may cause some classes to be excluded because they are linked to an
+ * unsatisfiable class, even though the link between the two classes does not
+ * convey that one cannot exist in a given taxon if the other does not. For
+ * example, if <code>C1 shares_ancestor_with some C2</code> and C2 is
+ * unsatisfiable in the considered taxon, then C1 will be unsatisfiable as well,
+ * even though it may very well be valid in that taxon. To avoid this, we
+ * forcibly remove a handful of “cross-taxon” relationships from the ontology
+ * before proceeding.
+ */
 public class DefaultSpeciesSubsetter implements ISpeciesSubsetStrategy {
 
     private static final String[] CROSS_TAXON_RELATIONS = new String[] { "http://purl.obolibrary.org/obo/RO_0002320",
@@ -27,7 +78,6 @@ public class DefaultSpeciesSubsetter implements ISpeciesSubsetStrategy {
     public Set<OWLClass> getSubset(OWLOntology ontology, OWLReasoner reasoner, Collection<IRI> roots, IRI taxon) {
         OWLOntologyManager mgr = ontology.getOWLOntologyManager();
         OWLDataFactory factory = mgr.getOWLDataFactory();
-        // Set<OWLClass> subset = ontology.getClassesInSignature(Imports.INCLUDED);
         HashSet<OWLClass> subset = new HashSet<OWLClass>();
 
         if ( roots == null ) {
