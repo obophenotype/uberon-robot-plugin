@@ -54,6 +54,25 @@ However, scores assigned to each prefix should be specified as
 `prefix=score` pairs. That is, use `-s UBERON=10 -s CL=9` instead of `-s
 UBERON 10 -s CL 9`.
 
+### create-species-subset
+This command is intended to replace OWLTools’ `--make-species-subset`
+command. Given a a NCBITaxon ID (specified with option `-t`, `--taxon`),
+the command will create a subset containing only the classes that do not
+violate known taxon constraints in that taxon.
+
+By default, the subset is evaluated from the top of the ontology
+(`owl:Thing`). Use the `--root` option to evaluate from a specific
+class; all classes above the root will not be included in the subset.
+The option may be repeated to evaluate the subset from more than one
+root class.
+
+The default behavior of the command is to remove all classes that are
+found not to belong in the subset from the output ontology.
+Alternatively, to merely tag the classes as belonging to the subset
+without actively remove them, use both the `--no-remove` option to keep
+the classes in the ontology and the `--subset-name` option to specify
+the subset IRI to tag the classes with.
+
 Building and using
 ------------------
 Build with Maven by running:

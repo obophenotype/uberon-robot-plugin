@@ -85,7 +85,7 @@ public class SpeciesSubsetCommand extends BasePlugin {
         options.addOption(null, "subset-name", true, "IRI to use to tag in-subset classes");
         options.addOption(null, "only-tag-in", true, "only tag classes in the specified prefixes");
         options.addOption(null, "write-tags-to", true, "write in-subset tags to specified file");
-        options.addOption(null, "remove", false, "remove all classes not in the subset from the output ontology");
+        options.addOption(null, "no-remove", false, "do not remove classes not in the subset from the output ontology");
     }
 
     @Override
@@ -111,7 +111,7 @@ public class SpeciesSubsetCommand extends BasePlugin {
         Set<OWLClass> subset = getStrategy(line).getSubset(ontology, reasoner, roots, taxonID);
 
         if (line.hasOption("subset-name")) {
-            IRI subsetIRI = IRI.create(line.getOptionValue("subset-name"));
+            IRI subsetIRI = getIRI(line.getOptionValue("subset-name"), "subset-name");
             ArrayList<String> prefixes = new ArrayList<String>();
             if ( line.hasOption("only-tag-in") ) {
                 for ( String p : line.getOptionValues("only-tag-in") ) {
@@ -130,7 +130,7 @@ public class SpeciesSubsetCommand extends BasePlugin {
             }
         }
 
-        if ( line.hasOption("remove") ) {
+        if ( !line.hasOption("no-remove") ) {
             Set<OWLClass> excluded = ontology.getClassesInSignature(Imports.INCLUDED);
             excluded.removeAll(subset);
 
