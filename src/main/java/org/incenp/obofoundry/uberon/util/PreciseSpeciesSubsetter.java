@@ -79,6 +79,7 @@ public class PreciseSpeciesSubsetter implements ISpeciesSubsetStrategy {
                 factory.getOWLClass(taxon));
 
         for ( IRI root : roots ) {
+            subset.add(factory.getOWLClass(root));
             for ( OWLClass c : reasoner.getSubClasses(factory.getOWLClass(root), false).getFlattened() ) {
                 if ( !unsats.contains(c) ) {
                     if ( reasoner.isSatisfiable(factory.getOWLObjectIntersectionOf(c, exp)) ) {
