@@ -93,13 +93,15 @@ public class DefaultSpeciesSubsetter implements ISpeciesSubsetStrategy {
 
         for ( IRI root : roots ) {
             Set<OWLClass> tmp = reasoner.getSubClasses(factory.getOWLClass(root), false).getFlattened();
-            tmp.add(factory.getOWLClass(root));
+            if ( !factory.getOWLThing().getIRI().equals(root) ) {
+                tmp.add(factory.getOWLClass(root));
+            }
 
             OWLAxiom ax = factory.getOWLSubClassOfAxiom(factory.getOWLClass(root), inTaxon);
             mgr.addAxiom(ontology, ax);
             reasoner.flush();
 
-            tmp.removeAll(reasoner.getUnsatisfiableClasses().getEntitiesMinusBottom());
+            tmp.removeAll(reasoner.getUnsatisfiableClasses().getEntities());
             subset.addAll(tmp);
 
             mgr.removeAxiom(ontology, ax);
