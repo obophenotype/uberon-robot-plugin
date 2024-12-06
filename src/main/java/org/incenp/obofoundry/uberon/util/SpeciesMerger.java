@@ -264,6 +264,8 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
             manager.removeAxioms(ontology, gcAxioms);
             manager.addAxioms(ontology, newAxioms);
         }
+
+        reasoner.dispose();
     }
 
     /*
