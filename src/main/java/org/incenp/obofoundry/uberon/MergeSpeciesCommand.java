@@ -68,32 +68,43 @@ public class MergeSpeciesCommand extends BasePlugin {
         }
 
         IRI taxonIRI = getIRI(line.getOptionValue("taxon"), "taxon");
-        IRI propertyIRI = getIRI(line.getOptionValue("property", "BFO:0000050"), "property");
         String suffix = line.getOptionValue("s", "species specific");
 
-        SpeciesMerger merger = new SpeciesMerger(state.getOntology(), CommandLineHelper.getReasonerFactory(line),
-                propertyIRI);
-
-        if ( line.hasOption('x') ) {
-            merger.setExtendedTranslation(true);
+        String[] properties = line.getOptionValues("property");
+        if ( properties == null ) {
+            properties = new String[] { "BFO:0000050" };
         }
 
-        if ( line.hasOption('g') ) {
-            merger.setGCAMode(SpeciesMerger.GCAMergeMode.TRANSLATE);
-        } else if ( line.hasOption('G') ) {
-            merger.setGCAMode(SpeciesMerger.GCAMergeMode.DELETE);
+        String[] includeProperties = line.getOptionValues("include-property");
+        if ( includeProperties == null ) {
+            includeProperties = new String[] {};
         }
 
-        if ( line.hasOption('q') ) {
-            for ( String item : line.getOptionValues("include-property") ) {
+        for ( String property : properties ) {
+            IRI propertyIRI = getIRI(property, "property");
+
+            SpeciesMerger merger = new SpeciesMerger(state.getOntology(), CommandLineHelper.getReasonerFactory(line),
+                    propertyIRI);
+
+            if ( line.hasOption('x') ) {
+                merger.setExtendedTranslation(true);
+            }
+
+            if ( line.hasOption('g') ) {
+                merger.setGCAMode(SpeciesMerger.GCAMergeMode.TRANSLATE);
+            } else if ( line.hasOption('G') ) {
+                merger.setGCAMode(SpeciesMerger.GCAMergeMode.DELETE);
+            }
+
+            for ( String item : includeProperties ) {
                 merger.includeProperty(getIRI(item, "include-property"));
             }
-        }
 
-        if ( line.hasOption('d') ) {
-            merger.setRemoveDeclarationAxiom(true);
-        }
+            if ( line.hasOption('d') ) {
+                merger.setRemoveDeclarationAxiom(true);
+            }
 
-        merger.merge(taxonIRI, suffix);
+            merger.merge(taxonIRI, suffix);
+        }
     }
 }
