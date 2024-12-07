@@ -33,10 +33,10 @@ package org.incenp.obofoundry.uberon.util;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.incenp.obofoundry.uberon.util.SpeciesMerger.GCAMergeMode;
 import org.semanticweb.owlapi.model.AxiomType;
 import org.semanticweb.owlapi.model.IRI;
 import org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom;
@@ -61,7 +61,6 @@ import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
 import org.semanticweb.owlapi.model.parameters.Imports;
 import org.semanticweb.owlapi.reasoner.OWLReasoner;
-import org.semanticweb.owlapi.reasoner.OWLReasonerFactory;
 import org.semanticweb.owlapi.util.OWLAxiomVisitorAdapter;
 
 /**
@@ -77,15 +76,12 @@ import org.semanticweb.owlapi.util.OWLAxiomVisitorAdapter;
 public class SpeciesMerger extends OWLAxiomVisitorAdapter {
 
     private OWLClass taxClass;
-    private OWLObjectProperty linkProperty;
-    private Set<OWLObjectProperty> includedProperties = null;
+    private Set<OWLObjectProperty> includedProperties;
     private String suffix;
 
     private OWLOntology ontology;
     private OWLOntologyManager manager;
     private OWLDataFactory factory;
-
-    private OWLReasonerFactory reasonerFactory;
     private OWLReasoner reasoner;
 
     private OWLClass txRootClass;
@@ -100,29 +96,17 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     private boolean removeDeclaration = false;
 
     /**
-     * Creates a new instance with BFO:0000050 as the linking property.
-     * 
-     * @param ontology        The ontology to operate on.
-     * @param reasonerFactory The reasoner factory to use.
-     */
-    public SpeciesMerger(OWLOntology ontology, OWLReasonerFactory reasonerFactory) {
-        this(ontology, reasonerFactory, IRI.create("http://purl.obolibrary.org/obo/BFO_0000050"));
-    }
-
-    /**
      * Creates a new instance.
      * 
      * @param ontology        The ontology to operate on.
      * @param reasonerFactory The reasoner factory to use.
-     * @param linkProperty    The object property used to link taxon-specific
-     *                        classes to their taxon-neutral equivalent.
      */
-    public SpeciesMerger(OWLOntology ontology, OWLReasonerFactory reasonerFactory, IRI linkProperty) {
+    public SpeciesMerger(OWLOntology ontology, OWLReasoner reasoner) {
         this.ontology = ontology;
-        this.reasonerFactory = reasonerFactory;
+        this.reasoner = reasoner;
         manager = ontology.getOWLOntologyManager();
         factory = ontology.getOWLOntologyManager().getOWLDataFactory();
-        this.linkProperty = factory.getOWLObjectProperty(linkProperty);
+        includedProperties = new HashSet<OWLObjectProperty>();
     }
 
     /**
@@ -166,32 +150,30 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     }
 
     /**
-     * add the specified object property to the list of properties to include in the
-     * merged ontology.
+     * Unfold classes for the specified taxon over the specified linking property.
      * 
-     * @param p The IRI of the object property to include.
+     * @param taxon              The taxon to unfold for.
+     * @param property           The property linking taxon-specific classes to
+     *                           their taxon-neutral counterparts.
+     * @param suffix             The suffix to append to the label of unfolded
+     *                           subclasses.
+     * @param includedProperties The properties to preserve (may be {@code null}.
+     * @throws ReasoningException If the ontology is not consistent.
      */
-    public void includeProperty(IRI p) {
-        if ( includedProperties == null ) {
-            includedProperties = new HashSet<OWLObjectProperty>();
-        }
-
-        includedProperties.add(factory.getOWLObjectProperty(p));
-    }
-
-    /**
-     * Unfold classes for the specified taxon.
-     * 
-     * @param taxon  The taxon to unfold for.
-     * @param suffix The suffix to append to the label of unfolded subclasses.
-     */
-    public void merge(IRI taxon, String suffix) throws ReasoningException {
-        reasoner = reasonerFactory.createReasoner(ontology);
+    public void merge(IRI taxon, IRI property, String suffix, List<IRI> includedProperties) throws ReasoningException {
         this.suffix = suffix;
 
+        this.includedProperties.clear();
+        if ( includedProperties != null ) {
+            for ( IRI includedProperty : includedProperties ) {
+                this.includedProperties.add(factory.getOWLObjectProperty(includedProperty));
+            }
+        }
+
         taxClass = factory.getOWLClass(taxon);
-        listTaxonSpecificClasses();
-        createMaps();
+        OWLObjectProperty linkProperty = factory.getOWLObjectProperty(property);
+        listTaxonSpecificClasses(linkProperty);
+        createMaps(linkProperty);
 
         for ( OWLClass c : txClasses ) {
             if ( c.isBottomEntity() ) {
@@ -264,8 +246,6 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
             manager.removeAxioms(ontology, gcAxioms);
             manager.addAxioms(ontology, newAxioms);
         }
-
-        reasoner.dispose();
     }
 
     /*
@@ -284,7 +264,7 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
      * Prepare a flat list of all the taxon-specific classes (all inferred
      * subclasses of "<property> some <taxon>").
      */
-    private void listTaxonSpecificClasses() {
+    private void listTaxonSpecificClasses(OWLObjectProperty linkProperty) {
         txRootClass = factory.getOWLClass(IRI.create(taxClass.getIRI().toString() + "-part"));
         OWLEquivalentClassesAxiom qax = factory.getOWLEquivalentClassesAxiom(txRootClass,
                 factory.getOWLObjectSomeValuesFrom(linkProperty, taxClass));
@@ -304,7 +284,7 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
      * 
      * - the entire class expression "N and (P some T)" (exMap).
      */
-    private void createMaps() {
+    private void createMaps(OWLObjectProperty linkProperty) {
         ecMap = new HashMap<OWLClass, OWLClass>();
         exMap = new HashMap<OWLClass, OWLClassExpression>();
 
@@ -499,7 +479,7 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
                 }
             }
 
-            if ( includedProperties != null && includedProperties.size() > 0 ) {
+            if ( includedProperties.size() > 0 ) {
                 Set<OWLObjectProperty> props = axiom.getObjectPropertiesInSignature();
                 boolean ok = props.isEmpty();
                 for ( OWLObjectProperty p : props ) {

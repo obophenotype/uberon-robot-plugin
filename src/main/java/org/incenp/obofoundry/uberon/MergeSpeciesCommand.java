@@ -31,11 +31,21 @@
 
 package org.incenp.obofoundry.uberon;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.cli.CommandLine;
 import org.incenp.obofoundry.uberon.util.SpeciesMerger;
 import org.obolibrary.robot.CommandLineHelper;
 import org.obolibrary.robot.CommandState;
 import org.semanticweb.owlapi.model.IRI;
+import org.semanticweb.owlapi.model.OWLOntology;
+import org.semanticweb.owlapi.reasoner.OWLReasoner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A command to fold species-specific classes to form a “composite” ontology.
@@ -46,9 +56,12 @@ import org.semanticweb.owlapi.model.IRI;
  */
 public class MergeSpeciesCommand extends BasePlugin {
 
+    private static final Logger logger = LoggerFactory.getLogger(MergeSpeciesCommand.class);
+
     public MergeSpeciesCommand() {
         super("merge-species", "create a composite cross-species ontology",
                 "robot merge-species -i <FILE> -t TAXON [-s SUFFIX] -o <FILE>");
+        options.addOption("b", "batch-file", true, "batch file describing the merges to perform");
         options.addOption("t", "taxon", true, "unfoled for specified taxon");
         options.addOption("p", "property", true, "unfold on specified property");
         options.addOption("s", "suffix", true, "suffix to append to class labels");
@@ -63,48 +76,99 @@ public class MergeSpeciesCommand extends BasePlugin {
 
     @Override
     public void performOperation(CommandState state, CommandLine line) throws Exception {
-        if ( !line.hasOption('t') ) {
-            throw new IllegalArgumentException("Missing --taxon argument");
-        }
+        List<MergeOperation> ops = new ArrayList<MergeOperation>();
 
-        IRI taxonIRI = getIRI(line.getOptionValue("taxon"), "taxon");
-        String suffix = line.getOptionValue("s", "species specific");
+        if ( line.hasOption('b') ) {
+            parseBatchFile(line.getOptionValue('b'), ops);
+        } else {
+            MergeOperation op = new MergeOperation();
 
-        String[] properties = line.getOptionValues("property");
-        if ( properties == null ) {
-            properties = new String[] { "BFO:0000050" };
-        }
+            if ( !line.hasOption('t') ) {
+                throw new IllegalArgumentException("Missing --taxon argument");
+            }
+            op.taxonId = getIRI(line.getOptionValue("taxon"), "taxon");
+            op.taxonLabel = line.getOptionValue("s", "species specific");
 
-        String[] includeProperties = line.getOptionValues("include-property");
-        if ( includeProperties == null ) {
-            includeProperties = new String[] {};
-        }
-
-        for ( String property : properties ) {
-            IRI propertyIRI = getIRI(property, "property");
-
-            SpeciesMerger merger = new SpeciesMerger(state.getOntology(), CommandLineHelper.getReasonerFactory(line),
-                    propertyIRI);
-
-            if ( line.hasOption('x') ) {
-                merger.setExtendedTranslation(true);
+            if ( line.hasOption("property") ) {
+                for ( String property : line.getOptionValues("property") ) {
+                    op.linkProperties.add(getIRI(property, "property"));
+                }
+            } else {
+                op.linkProperties.add(getIRI("BFO:0000050", "property"));
             }
 
-            if ( line.hasOption('g') ) {
-                merger.setGCAMode(SpeciesMerger.GCAMergeMode.TRANSLATE);
-            } else if ( line.hasOption('G') ) {
-                merger.setGCAMode(SpeciesMerger.GCAMergeMode.DELETE);
+            if ( line.hasOption("include-property") ) {
+                for ( String property : line.getOptionValues("include-property") ) {
+                    op.includedProperties.add(getIRI(property, "include-property"));
+                }
             }
-
-            for ( String item : includeProperties ) {
-                merger.includeProperty(getIRI(item, "include-property"));
-            }
-
-            if ( line.hasOption('d') ) {
-                merger.setRemoveDeclarationAxiom(true);
-            }
-
-            merger.merge(taxonIRI, suffix);
+            ops.add(op);
         }
+
+        OWLOntology ontology = state.getOntology();
+        OWLReasoner reasoner = CommandLineHelper.getReasonerFactory(line).createReasoner(ontology);
+        SpeciesMerger merger = new SpeciesMerger(ontology, reasoner);
+
+        if ( line.hasOption('x') ) {
+            merger.setExtendedTranslation(true);
+        }
+        if ( line.hasOption('g') ) {
+            merger.setGCAMode(SpeciesMerger.GCAMergeMode.TRANSLATE);
+        } else if ( line.hasOption('G') ) {
+            merger.setGCAMode(SpeciesMerger.GCAMergeMode.DELETE);
+        }
+        if ( line.hasOption('d') ) {
+            merger.setRemoveDeclarationAxiom(true);
+        }
+
+        for ( MergeOperation op : ops ) {
+            for ( IRI property : op.linkProperties ) {
+                logger.info("Unfolding for species %s over %s links", op.taxonId, property);
+                merger.merge(op.taxonId, property, op.taxonLabel, op.includedProperties);
+            }
+        }
+
+        reasoner.dispose();
+    }
+
+    private void parseBatchFile(String file, List<MergeOperation> operations) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(file));
+        String line;
+
+        while ( (line = reader.readLine()) != null ) {
+            if ( line.isEmpty() || line.startsWith("#") ) {
+                continue;
+            }
+            String[] items = line.split("\t");
+
+            MergeOperation op = new MergeOperation();
+            op.taxonId = getIRI(items[0], "taxon");
+            op.taxonLabel = items.length > 1 ? items[1] : "species specific";
+
+            if ( items.length > 2 ) {
+                for ( String p : items[2].split(",") ) {
+                    op.linkProperties.add(getIRI(p, "property"));
+                }
+            } else {
+                op.linkProperties.add(getIRI("BFO:0000050", "property"));
+            }
+
+            if ( items.length > 3 ) {
+                for ( String p : items[3].split(",") ) {
+                    op.includedProperties.add(getIRI(p, "include-property"));
+                }
+            }
+
+            operations.add(op);
+        }
+
+        reader.close();
+    }
+
+    private class MergeOperation {
+        IRI taxonId;
+        String taxonLabel;
+        ArrayList<IRI> linkProperties = new ArrayList<IRI>();
+        ArrayList<IRI> includedProperties = new ArrayList<IRI>();
     }
 }
