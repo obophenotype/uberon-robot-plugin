@@ -61,8 +61,10 @@ import org.semanticweb.owlapi.vocab.OWLRDFVocabulary;
  * <li>stripping of axioms that cannot be represented in pure OBO
  * ({@code --strip-owl-axioms});
  * <li>stripping of GCI axioms ({@code --strip-gci-axioms});
- * <li>merging of several comments into a single comment
- * ({@code --merge-comments}).
+ * <li>fixing the presence of more than one comment on a class by (1) discarding
+ * all comments on the class ({@code --extra-comments discard-all}), (2)
+ * discarding all but one comment ({@code --extra-comments keep-one}), or (3)
+ * merging the comments into a single one ({@code --extra-comments merge}).
  * </ul>
  * <p>
  * Customised OBO output is sent to the file indicated by {@code --obo-output}.
@@ -76,6 +78,8 @@ public class OboExportCommand extends BasePlugin {
                 "robot obo-export -i <FILE> [options] --obo-output <FILE>");
         options.addOption(null, "obo-output", true, "write output to the specified OBO file");
         options.addOption(null, "merge-comments", false, "merge comments into a single comment per class");
+        options.addOption(null, "extra-comments", true,
+                "how to handle more than one comment on a class (discard-all, keep-one, merge)");
         options.addOption(null, "strip-owl-axioms", false, "strip untranslatable OWL axioms");
         options.addOption(null, "strip-gci-axioms", false, "strip GCI axioms");
     }
@@ -84,8 +88,18 @@ public class OboExportCommand extends BasePlugin {
     public void performOperation(CommandState state, CommandLine line) throws Exception {
         OWLOntology ont = state.getOntology();
 
-        if ( line.hasOption("merge-comments") ) {
-            mergeComments(ont);
+        ExtraCommentAction commentAction = null;
+        if ( line.hasOption("extra-comments") ) {
+            commentAction = ExtraCommentAction.fromString(line.getOptionValue("extra-comments"));
+            if ( commentAction == null ) {
+                throw new Exception("Invalid argument for option --extra-comments");
+            }
+        } else if ( line.hasOption("merge-comments") ) {
+            commentAction = ExtraCommentAction.MERGE;
+        }
+
+        if ( commentAction != null ) {
+            handleComments(ont, commentAction);
         }
 
         if ( line.hasOption("strip-gci-axioms") ) {
@@ -105,43 +119,54 @@ public class OboExportCommand extends BasePlugin {
         }
     }
 
-    private void mergeComments(OWLOntology ont) {
+    private void handleComments(OWLOntology ont, ExtraCommentAction action) {
         OWLOntologyManager mgr = ont.getOWLOntologyManager();
         OWLDataFactory fac = mgr.getOWLDataFactory();
 
-        for ( OWLClass klass : ont.getClassesInSignature(Imports.INCLUDED) ) {
+        for (OWLClass klass : ont.getClassesInSignature(Imports.INCLUDED)) {
             Set<OWLAnnotationAssertionAxiom> commentAxioms = new HashSet<OWLAnnotationAssertionAxiom>();
 
-            for ( OWLAnnotationAssertionAxiom ax : ont.getAnnotationAssertionAxioms(klass.getIRI()) ) {
-                if ( ax.getProperty().isComment() ) {
+            for (OWLAnnotationAssertionAxiom ax : ont.getAnnotationAssertionAxioms(klass.getIRI())) {
+                if (ax.getProperty().isComment()) {
                     commentAxioms.add(ax);
                 }
             }
 
-            if ( commentAxioms.size() > 1 ) {
-                StringBuilder sb = new StringBuilder();
-                Set<OWLAnnotation> annotations = new HashSet<OWLAnnotation>();
-                for ( OWLAnnotationAssertionAxiom ax : commentAxioms ) {
-                    String comment = null;
-                    if ( ax.getValue().isLiteral() ) {
-                        comment = ax.getValue().asLiteral().get().getLiteral();
-                    } else {
-                        // Huh? Non-literal comment?
-                        comment = ax.getValue().toString();
+            if (commentAxioms.size() > 1 ) {
+                OWLAnnotationAssertionAxiom toAdd = null;
+                if ( action == ExtraCommentAction.KEEP_ONE) {
+                    for (OWLAnnotationAssertionAxiom ax : commentAxioms) {
+                        if (toAdd == null ) {
+                            toAdd = ax;
+                        }
                     }
-                    if ( sb.length() > 0 ) {
-                        sb.append(' ');
+                } else if (action == ExtraCommentAction.MERGE) {
+                    StringBuilder sb = new StringBuilder();
+                    Set<OWLAnnotation> annotations = new HashSet<OWLAnnotation>();
+                    for (OWLAnnotationAssertionAxiom ax : commentAxioms) {
+                        String comment = null;
+                        if ( ax.getValue().isLiteral()) {
+                            comment = ax.getValue().asLiteral().get().getLiteral();
+                        } else {
+                            // Huh? Non-literal comment?
+                            comment = ax.getValue().toString();
+                        }
+                        if (sb.length() > 0 ) {
+                            sb.append(' ');
+                        }
+                        sb.append(comment);
+                        annotations.addAll(ax.getAnnotations());
                     }
-                    sb.append(comment);
-                    annotations.addAll(ax.getAnnotations());
+
+                    toAdd = fac.getOWLAnnotationAssertionAxiom(
+                            fac.getOWLAnnotationProperty(OWLRDFVocabulary.RDFS_COMMENT.getIRI()), klass.getIRI(),
+                            fac.getOWLLiteral(sb.toString()), annotations);
                 }
 
-                OWLAnnotationAssertionAxiom merged = fac.getOWLAnnotationAssertionAxiom(
-                        fac.getOWLAnnotationProperty(OWLRDFVocabulary.RDFS_COMMENT.getIRI()), klass.getIRI(),
-                        fac.getOWLLiteral(sb.toString()), annotations);
-
                 mgr.removeAxioms(ont, commentAxioms);
-                mgr.addAxiom(ont, merged);
+                if ( toAdd != null ) {
+                    mgr.addAxiom(ont, toAdd);
+                }
             }
         }
     }
@@ -160,4 +185,21 @@ public class OboExportCommand extends BasePlugin {
             mgr.removeAxioms(ont, gciAxioms);
         }
     }
+
+    private enum ExtraCommentAction {
+        DISCARD_ALL,
+        KEEP_ONE,
+        MERGE;
+
+        static ExtraCommentAction fromString(String s) {
+            if ( s.equalsIgnoreCase("discard-all") ) {
+                return DISCARD_ALL;
+            } else if ( s.equalsIgnoreCase("keep-one") ) {
+                return KEEP_ONE;
+            } else if ( s.equalsIgnoreCase("merge") ) {
+                return MERGE;
+            }
+            return null;
+        }
+    };
 }
