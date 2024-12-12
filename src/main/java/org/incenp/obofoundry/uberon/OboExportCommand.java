@@ -121,7 +121,6 @@ public class OboExportCommand extends BasePlugin {
             if ( commentAxioms.size() > 1 ) {
                 StringBuilder sb = new StringBuilder();
                 Set<OWLAnnotation> annotations = new HashSet<OWLAnnotation>();
-                boolean first = true;
                 for ( OWLAnnotationAssertionAxiom ax : commentAxioms ) {
                     String comment = null;
                     if ( ax.getValue().isLiteral() ) {
@@ -130,11 +129,10 @@ public class OboExportCommand extends BasePlugin {
                         // Huh? Non-literal comment?
                         comment = ax.getValue().toString();
                     }
-                    sb.append(comment);
-                    if ( first ) {
+                    if ( sb.length() > 0 ) {
                         sb.append(' ');
-                        first = false;
                     }
+                    sb.append(comment);
                     annotations.addAll(ax.getAnnotations());
                 }
 
