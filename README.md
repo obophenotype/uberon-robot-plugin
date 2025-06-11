@@ -101,6 +101,31 @@ ROBOT that includes the commands provided by this plugin as is they were
 built-in commands. It is intended to be used until a plugin-enabled
 version of ROBOT becomes available.
 
+Using with the ODK
+------------------
+To use the plugin in an ODK-managed ontology, add the following to your
+ODK configuration file (`src/ontology/myontology-odk.yaml`):
+
+```yaml
+robot_plugins:
+  plugins:
+    - name: uberon
+      mirror_from: https://github.com/obophenotype/uberon-robot-plugin/releases/download/uberon-robot-plugin-X.Y.Z/uberon.jar
+```
+
+where `X.Y.Z` is the version number of the Uberon ROBOT plugin.
+
+Then, whenever you need the plugin in one of your custom Makefile rules,
+make the rule depend on the `all_robot_plugins` target, and invoke the
+command you need as part of a ROBOT pipeline by prefixing its name with
+`uberon:`. For example:
+
+```make
+target.owl: source1.owl source2.owl | all_robot_plugins
+	$(ROBOT) merge -i source1.owl -o source2.owl \
+	         uberon:merge-species -t NCBITaxon:7227 -s 'D melanogaster' -o $@
+```
+
 Copying
 -------
 Since the Uberon ROBOT plugin is, at least for now, made of commands

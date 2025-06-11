@@ -128,7 +128,7 @@ public abstract class BasePlugin implements Command {
      * expanding CURIEs to ROBOT, which may use whatever informations it has (such
      * as prefix mappings specified using the --prefix option).
      * 
-     * @param Term  the term to transform into an IRI.
+     * @param term  the term to transform into an IRI.
      * @param field The source where the term comes from. Used in ROBOT's error
      *              message, if the term cannot be transformed into an IRI.
      * @return The resulting IRI.

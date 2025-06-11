@@ -68,6 +68,7 @@ import org.semanticweb.owlapi.util.OWLEntityRemover;
  * <li>an alternative strategy (<code>precise</code>), which basically consists
  * in including each class for which the expression
  * <code>THE_CLASS and in_taxon some THE_TAXON</code> is satisfiable.
+ * </ul>
  */
 public class SpeciesSubsetCommand extends BasePlugin {
 

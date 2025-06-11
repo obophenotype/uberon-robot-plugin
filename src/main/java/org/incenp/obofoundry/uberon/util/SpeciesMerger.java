@@ -98,8 +98,8 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
     /**
      * Creates a new instance.
      * 
-     * @param ontology        The ontology to operate on.
-     * @param reasonerFactory The reasoner factory to use.
+     * @param ontology The ontology to operate on.
+     * @param reasoner The reasoner to use.
      */
     public SpeciesMerger(OWLOntology ontology, OWLReasoner reasoner) {
         this.ontology = ontology;
@@ -128,8 +128,8 @@ public class SpeciesMerger extends OWLAxiomVisitorAdapter {
      * <p>
      * The default behaviour, for compatibility with Chris Mungall's original
      * implementation, is to keep such axioms as they are (referring to now merged
-     * classes). Set to {@link GCAMergeMode.TRANSLATE} to translate those axioms, or
-     * to {@link GCAMergeMode.DELETE} to remove them entirely.
+     * classes). Set to {@link GCAMergeMode#TRANSLATE} to translate those axioms, or
+     * to {@link GCAMergeMode#DELETE} to remove them entirely.
      * 
      * @param mode A value indicating how general class axioms should be processed.
      */
