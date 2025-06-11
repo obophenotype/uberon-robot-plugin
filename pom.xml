@@ -6,7 +6,7 @@
 
   <name>Uberon ROBOT plugin</name>
   <description>ROBOT plugin for the Uberon ontology</description>
-  <url>https://github.com/gouttegd/uberon-robot-plugin</url>
+  <url>https://obophenotype.github.io/uberon-robot-plugin</url>
 
   <licenses>
     <license>
@@ -23,15 +23,15 @@
   </developers>
 
   <scm>
-    <connection>scm:git:https://github.com/gouttegd/uberon-robot-plugin.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/gouttegd/uberon-robot-plugin.git</developerConnection>
-    <url>https://github.com/gouttegd/uberon-robot-plugin</url>
+    <connection>scm:git:https://github.com/obophenotype/uberon-robot-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/obophenotype/uberon-robot-plugin.git</developerConnection>
+    <url>https://github.com/obophenotype/uberon-robot-plugin</url>
     <tag>HEAD</tag>
   </scm>
 
   <issueManagement>
     <system>GitHub</system>
-    <url>https://github.com/gouttegd/uberon-robot-plugin</url>
+    <url>https://github.com/obophenotype/uberon-robot-plugin</url>
   </issueManagement>
 
   <dependencies>
