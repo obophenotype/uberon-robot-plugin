@@ -12,6 +12,7 @@
       <item name="merge-species" href="merge-species.html" />
       <item name="merge-equivalent-sets" href="merge-equivalent-sets.html" />
       <item name="create-species-subset" href="create-species-subset.html" />
+      <item name="inference-diff" href="inference-diff.html" />
     </menu>
     <menu name="Links">
       <item name="Issue tracker" href="https://github.com/obophenotype/uberon-robot-plugin/issues" />

@@ -1,3 +1,4 @@
 org.incenp.obofoundry.uberon.MergeSpeciesCommand
 org.incenp.obofoundry.uberon.MergeEquivalentSetsCommand
 org.incenp.obofoundry.uberon.SpeciesSubsetCommand
+org.incenp.obofoundry.uberon.InferenceDiffCommand
